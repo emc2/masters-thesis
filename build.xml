@@ -1,0 +1,462 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project basedir="." name="runtime">
+
+   <!--
+      These properties control the directory structure for this project.
+      If you change from the default layout, please change these properties.
+    -->
+
+  <!--
+     This is the directory for your project's sources.
+     This should exist in version control.
+    -->
+  <property location="src" name="src-dir"/>
+
+  <!--
+      This is the directory used while building your project.
+      This is created each time the project is built.
+    -->
+  <property location="build" name="build-dir"/>
+
+  <!--
+      This is the directory where all results of the build are placed.
+      This is created each time the project is built.
+    -->
+  <property location="dist" name="dist-dir"/>
+
+  <!--
+      This is the directory used to generate the documentation.
+      This is created each time the project is built.
+    -->
+  <property location="doc" name="doc-dir"/>
+
+  <!-- This is the root directory to which to install this project. -->
+  <condition property="install-dir" else="/usr/local/">
+    <isset property="install-dir"/>
+  </condition>
+
+  <!--
+      These references define the build paths passed in from previous
+      levels.  If they are not defined, then they will be initialized
+      to empty.  If there is no reference to base-<path>, then a
+      property named <path>-refid will be set to default-<path>,
+      otherwise it will be set to <base>-path, where <path> is
+      classpath, link-path, include-path, or others.
+    -->
+  <path id="default-link-path-id"/>
+
+  <property name="default-link-path" refid="default-link-path-id"/>
+
+  <condition property="base-link-path" else="${default-link-path}">
+    <isset property="base-link-path"/>
+  </condition>
+
+  <path id="default-include-path-id"/>
+
+  <property name="default-include-path" refid="default-include-path-id"/>
+
+  <condition property="base-include-path" else="${default-include-path}">
+    <isset property="base-include-path"/>
+  </condition>
+
+  <!-- These are targets that set the optional parts of the version. -->
+  <condition property="version.prefix" else="">
+    <isset property="version.prefix"/>
+  </condition>
+
+  <condition property="version.suffix" else="">
+    <isset property="version.suffix"/>
+  </condition>
+
+  <condition property="version.test" else="false">
+    <isset property="version.test"/>
+  </condition>
+
+  <target name="-version">
+    <delete file="build.version.properties"/>
+    <copy file="version.properties" tofile="build.version.properties"/>
+    <propertyfile file="build.version.properties">
+      <entry key="${ant.project.name}.version.prefix" type="string"
+	     value="&quot;${version.prefix}&quot;"/>
+      <entry key="${ant.project.name}.version.suffix" type="string"
+	     value="&quot;${version.suffix}&quot;"/>
+      <entry key="${ant.project.name}.version.test"
+	     value="${version.test}"/>
+    </propertyfile>
+    <property file="version.properties"/>
+    <property name="version.major" value="${ant.project.name}.version.major"/>
+    <property name="version.minor" value="${ant.project.name}.version.minor"/>
+    <property name="version.subminor"
+	      value="${ant.project.name}.version.subminor"/>
+    <property name="version.build" value="${ant.project.name}.version.build"/>
+  </target>
+
+  <!-- These are the main tasks. -->
+
+  <!--
+      This is the prebuild task.  This should update source from
+      revision control, update versions, and perform anything that
+      should be known by other projects prior to doing an actual
+      build.
+    -->
+  <target name="prebuild" depends="-do-prebuild,-version"/>
+
+  <!--
+      This target builds everything.  It does not run tests or
+      distribution.  However, documentation should be generated with
+      every build.
+    -->
+  <target name="build" depends="-do-build"/>
+
+  <!--
+      This target creates all documentation for the project and
+      subprojects.
+    -->
+  <target name="doc" depends="-do-doc"/>
+
+  <!-- This target deletes all artifacts of the build. -->
+  <target name="clean" depends="-do-clean"/>
+
+  <!--
+      This target deletes all artifacts of a build, and all artifacts
+      from all subprojects
+    -->
+  <target name="clean-all" depends="-do-clean-all"/>
+
+  <!-- This target runs all unit tests for the build -->
+  <target name="test" depends="-do-test"/>
+
+  <!-- This target creates all distributions. -->
+  <target name="dist" depends="-do-dist"/>
+
+  <!-- This target installs any distributions on which others depend -->
+  <target name="install" depends="devel-dist">
+    <copy todir="${install-dir}">
+      <fileset dir="${dist-dir}/devel-dist"/>
+    </copy>
+  </target>
+
+  <!-- Start of user-edited portion of the file -->
+
+  <!--
+      These are the core work tasks.  Users should edit these, add
+      their own commands, and reference other targets defined below in
+      the next section.
+    -->
+
+  <!-- This task should perform any prebuild tasks -->
+  <target name="-do-prebuild"/>
+
+  <!-- This task should build all the artifacts for this project. -->
+  <target name="-do-build" depends="-build"/>
+
+  <!-- This task should generate all documentation for this project. -->
+  <target name="-do-doc"/>
+
+  <!-- This task should build and run all tests for this project. -->
+  <target name="-do-test"/>
+
+  <!--
+      This task should create all distribution directories for this project.
+    -->
+  <target name="-do-dist" depends="devel-dist,src-dist,bin-dist">
+  </target>
+
+  <!-- This task should delete all artifacts of a build -->
+  <target name="-do-clean">
+    <delete file="build.version.properties"/>
+    <delete dir="${build-dir}"/>
+    <delete dir="${dist-dir}"/>
+    <delete dir="${doc-dir}"/>
+  </target>
+
+  <!--
+      This task should delete all artifacts of a build from all
+      subprojects too
+    -->
+  <target name="-do-clean-all" depends="-do-clean"/>
+
+  <!--
+      Put all your user-defined tasks here.
+    -->
+
+  <taskdef resource="cpptasks.tasks"/>
+  <typedef resource="cpptasks.types"/>
+
+  <condition property="darwin">
+    <os name="Mac OS X"/>
+  </condition>
+
+  <condition property="IA-32">
+    <os arch="i386"/>
+  </condition>
+
+  <condition property="gcc">
+    <not>
+      <or>
+	<isset property="IA-32"/>
+      </or>
+    </not>
+  </condition>
+
+  <condition property="use-icc-opt">
+    <and>
+      <isset property="IA-32"/>
+      <not><isset property="gcc"/></not>
+      <not><isset property="debug"/></not>
+      <not><isset property="no-optimize"/></not>
+    </and>
+  </condition>
+
+  <condition property="use-icc-no-opt">
+    <and>
+      <isset property="IA-32"/>
+      <not><isset property="gcc"/></not>
+      <not><isset property="debug"/></not>
+      <isset property="no-optimize"/>
+    </and>
+  </condition>
+
+  <condition property="use-icc-debug-opt">
+    <and>
+      <isset property="IA-32"/>
+      <not><isset property="gcc"/></not>
+      <isset property="debug"/>
+      <not><isset property="no-optimize"/></not>
+    </and>
+  </condition>
+
+  <condition property="use-icc-debug-no-opt">
+    <and>
+      <isset property="IA-32"/>
+      <not><isset property="gcc"/></not>
+      <isset property="debug"/>
+      <isset property="no-optimize"/>
+    </and>
+  </condition>
+
+  <condition property="use-gcc-opt">
+    <and>
+      <isset property="gcc"/>
+      <not><isset property="debug"/></not>
+      <not><isset property="no-optimize"/></not>
+    </and>
+  </condition>
+
+  <condition property="use-gcc-no-opt">
+    <and>
+      <isset property="gcc"/>
+      <not><isset property="debug"/></not>
+      <isset property="no-optimize"/>
+    </and>
+  </condition>
+
+  <condition property="use-gcc-debug-opt">
+    <and>
+      <isset property="gcc"/>
+      <isset property="debug"/>
+      <not><isset property="no-optimize"/></not>
+    </and>
+  </condition>
+
+  <condition property="use-gcc-debug-no-opt">
+    <and>
+      <isset property="gcc"/>
+      <isset property="debug"/>
+      <isset property="no-optimize"/>
+    </and>
+  </condition>
+
+  <!--
+      At this point, you take over and start writing tasks yourself.
+      First thing you'll probably want to do is define some
+      directories for your distributions.
+    -->
+  <property name="devel-dist-dir" value="${dist-dir}/devel-dist/"/>
+  <property name="bin-dist-dir" value="${dist-dir}/bin-dist/"/>
+  <property name="src-dist-dir" value="${dist-dir}/src-dist/"/>
+  <property name="build-src-dir" value="${build-dir}/src"/>
+  <property name="build-bin-dir" value="${build-dir}/bin"/>
+  <property name="build-include-dir" value="${build-dir}/include"/>
+  <property name="build-lib-dir" value="${build-dir}/lib"/>
+  <property name="build-obj-dir" value="${build-dir}/obj"/>
+
+  <!--
+      Now define tasks to create the distributions.  It's okay to
+      depend on -do-build, but more intelligent to depend directly on
+      the files we need.  Source releases don't need files at all,
+      except for when we start to transform the buildfiles.
+    -->
+  <target name="devel-dist" depends="-build">
+    <mkdir dir="${devel-dist-dir}"/>
+    <!-- Staging commands -->
+  </target>
+
+  <target name="bin-dist" depends="-build">
+    <mkdir dir="${bin-dist-dir}"/>
+    <!-- Staging commands -->
+  </target>
+
+  <target name="src-dist">
+    <mkdir dir="${src-dist-dir}"/>
+    <!-- Staging commands -->
+  </target>
+
+  <!-- Define tasks to build everything.  Do not depend on pre-build.
+       Expect this to be done already
+    -->
+  <target name="-mkdirs">
+    <mkdir dir="${build-src-dir}"/>
+    <mkdir dir="${build-obj-dir}"/>
+  </target>
+
+  <target name="-build-objs" depends="-mkdirs">
+    <cc id="cc-obj" outtype="static" objdir="${build-obj-dir}">
+      <compiler if="use-icc-opt" name="icc" debug="false" optimize="extreme">
+	<compilerarg value="-restrict"/>
+	<compilerarg value="-ipo"/>
+	<compilerarg value="-m32"/>
+      </compiler>
+      <compiler if="use-icc-no-opt" name="icc" debug="false" optimize="none">
+	<compilerarg value="-restrict"/>
+	<compilerarg value="-m32"/>
+      </compiler>
+      <compiler if="use-icc-debug-opt" name="icc" debug="true"
+		optimize="extreme">
+	<compilerarg value="-restrict"/>
+	<compilerarg value="-ipo"/>
+	<compilerarg value="-m32"/>
+      </compiler>
+      <compiler if="use-icc-debug-no-opt" name="icc" debug="true">
+	<compilerarg value="-restrict"/>
+	<compilerarg value="-m32"/>
+      </compiler>
+      <compiler if="use-gcc-opt" name="gcc" debug="false" optimize="extreme"/>
+      <compiler if="use-gcc-no-opt" name="gcc" debug="false"/>
+      <compiler if="use-gcc-debug-opt" name="gcc" debug="true"
+		optimize="extreme"/>
+      <compiler if="use-gcc-debug-no-opt" name="gcc" debug="true"/>
+      <defineset id="defines">
+	<define if="darwin" name="DARWIN"/>
+	<define if="IA-32" name="IA_32"/>
+	<define if="debug" name="DEBUG"/>
+	<define if="gcc" name="restrict" value=" "/>
+      </defineset>
+      <includepath>
+	<pathelement path="${base-include-path}"/>
+	<pathelement location="include"/>
+      </includepath>
+      <fileset file="${src-dir}/launcher.c"/>
+      <fileset file="${src-dir}/runtime.c"/>
+      <fileset file="test/startup_test.c"/>
+      <fileset file="test/malloc_test.c"/>
+<!--      <fileset file="test/cc_test.c"/> -->
+<!--      <fileset file="test/gc_test.c"/>-->
+<!--      <fileset file="test/sample_prog.c"/>-->
+<!--      <fileset file="test/test.s"/> -->
+    </cc>
+  </target>
+
+  <target name="-startup-test" depends="-build-objs">
+    <cc outtype="executable" outfile="startup_test" objdir="${build-obj-dir}">
+      <linker if="use-icc-opt" name="icc" debug="false">
+	<linkerarg value="-ipo"/>
+	<linkerarg value="-O3"/>
+	<linkerarg value="-m32"/>
+      </linker>
+      <linker if="use-icc-no-opt" name="icc" debug="false">
+	<linkerarg value="-m32"/>
+      </linker>
+      <linker if="use-icc-debug-opt" name="icc" debug="true">
+	<linkerarg value="-ipo"/>
+	<linkerarg value="-O3"/>
+	<linkerarg value="-m32"/>
+      </linker>
+      <linker if="use-icc-debug-no-opt" name="icc" debug="true">
+	<linkerarg value="-m32"/>
+      </linker>
+      <linker if="use-gcc-opt" name="gcc" debug="false"/>
+      <linker if="use-gcc-no-opt" name="gcc" debug="false"/>
+      <linker if="use-gcc-debug-opt" name="gcc" debug="true"/>
+      <linker if="use-gcc-debug-no-opt" name="gcc" debug="true"/>
+      <fileset dir="${build-obj-dir}/" includes="runtime.o"/>
+      <fileset dir="${build-obj-dir}/" includes="launcher.o"/>
+      <fileset dir="${build-obj-dir}/" includes="startup_test.o"/>
+    </cc>
+  </target>
+
+  <target name="-malloc-test" depends="-build-objs">
+    <cc outtype="executable" outfile="malloc_test" objdir="${build-obj-dir}">
+      <linker if="use-icc-opt" name="icc" debug="false">
+	<linkerarg value="-ipo"/>
+	<linkerarg value="-O3"/>
+	<linkerarg value="-m32"/>
+      </linker>
+      <linker if="use-icc-no-opt" name="icc" debug="false">
+	<linkerarg value="-m32"/>
+      </linker>
+      <linker if="use-icc-debug-opt" name="icc" debug="true">
+	<linkerarg value="-ipo"/>
+	<linkerarg value="-O3"/>
+	<linkerarg value="-m32"/>
+      </linker>
+      <linker if="use-icc-debug-no-opt" name="icc" debug="true">
+	<linkerarg value="-m32"/>
+      </linker>
+      <linker if="use-gcc-opt" name="gcc" debug="false"/>
+      <linker if="use-gcc-no-opt" name="gcc" debug="false"/>
+      <linker if="use-gcc-debug-opt" name="gcc" debug="true"/>
+      <linker if="use-gcc-debug-no-opt" name="gcc" debug="true"/>
+      <fileset dir="${build-obj-dir}/" includes="runtime.o"/>
+      <fileset dir="${build-obj-dir}/" includes="launcher.o"/>
+      <fileset dir="${build-obj-dir}/" includes="malloc_test.o"/>
+    </cc>
+  </target>
+
+  <target name="-cc-test" depends="-build-objs">
+    <cc outtype="executable" outfile="cc_test" objdir="${build-obj-dir}">
+      <linker if="use-icc-opt" name="icc" debug="false">
+	<linkerarg value="-ipo"/>
+	<linkerarg value="-O3"/>
+	<linkerarg value="-m32"/>
+      </linker>
+      <linker if="use-icc-no-opt" name="icc" debug="false">
+	<linkerarg value="-m32"/>
+      </linker>
+      <linker if="use-icc-debug-opt" name="icc" debug="true">
+	<linkerarg value="-ipo"/>
+	<linkerarg value="-O3"/>
+	<linkerarg value="-m32"/>
+      </linker>
+      <linker if="use-icc-debug-no-opt" name="icc" debug="true">
+	<linkerarg value="-m32"/>
+      </linker>
+      <linker if="use-gcc-opt" name="gcc" debug="false"/>
+      <linker if="use-gcc-no-opt" name="gcc" debug="false"/>
+      <linker if="use-gcc-debug-opt" name="gcc" debug="true"/>
+      <linker if="use-gcc-debug-no-opt" name="gcc" debug="true"/>
+      <fileset dir="${build-obj-dir}/" includes="runtime.o"/>
+      <fileset dir="${build-obj-dir}/" includes="launcher.o"/>
+      <fileset dir="${build-obj-dir}/" includes="test.o"/>
+      <fileset dir="${build-obj-dir}/" includes="cc_test.o"/>
+    </cc>
+  </target>
+
+  <target name="-test-progs" depends="-startup-test,-malloc-test"/>
+
+  <target name="-build" depends="-test-progs"/>
+
+  <!-- These will be in every build file -->
+
+  <target name="-create-dirs">
+    <mkdir dir="${build-dir}"/>
+    <mkdir dir="${build-include-dir}"/>
+    <mkdir dir="${build-lib-dir}"/>
+    <mkdir dir="${build-bin-dir}"/>
+  </target>
+
+  <target depends="-create-dirs" name="-init-build">
+    <property file="build.version.properties"/>
+  </target>
+
+</project>
